@@ -30,7 +30,8 @@ def FileToMongo():
             # a = requests.get("http://127.0.0.1:8080/home")
             # logging.info("get a {}".format(a))
 
-            b = requests.get("http://127.0.0.1:8000/api/v1/meta/read_all/")
+            # b = requests.get("http://127.0.0.1:8000/api/v1/meta/read_all/")
+            b = requests.get("http://172.18.0.3:8000/api/v1/meta/read_all/").json()  # test (o), 172.18.0.3(o)
             logging.info("get meta ... {}".format(b))
             return 0
 
