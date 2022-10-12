@@ -8,6 +8,7 @@ import random
 import psycopg2.extras
 from airflow.decorators import dag, task
 from airflow.operators.python import PythonOperator
+from airflow.operators.empty import EmptyOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.operators.bash import BashOperator
@@ -36,7 +37,7 @@ def FileToMongo():
     )
 
     create_table_meta_competition = PostgresOperator(
-        task_id="create_table_meta_competiion",
+        task_id="create_table_meta_competition",
         postgres_conn_id="fdp_meta_pg_conn",
         sql="sql/meta/create_table_meta_competition.sql",
     )
@@ -59,27 +60,12 @@ def FileToMongo():
         sql="sql/meta/create_table_meta_event.sql",
     )
 
-    # @task.python
-    # def get_meta():
-    #     try:
-    #         # a = requests.get("http://127.0.0.1:8080/home")
-    #         # logging.info("get a {}".format(a))
-    #
-    #         # b = requests.get("http://127.0.0.1:8000/api/v1/meta/read_all/")
-    #         b = requests.get("http://172.18.0.3:8000/api/v1/meta/read_all/").json()  # test (o), 172.18.0.3(o)
-    #         logging.info("get meta ... {}".format(b))
-    #         return 0
-    #
-    #     except Exception as e:
-    #         raise AirflowException(e)
-    #         # logging.error(e)
-    #         # return 1
-
     @task.python
     def get_meta_competition():
         try:
             url = Variable.get("url_meta_read_one")  # http://172.18.0.3:8000/api/v1/meta/read_one
-            data_type_list = Variable.get("data_type_list", deserialize_json=True)  # ["competition", "match", "lineup", "event"]
+            data_type_list = Variable.get("data_type_list",
+                                          deserialize_json=True)  # ["competition", "match", "lineup", "event"]
             res = get_meta_one(url, data_type_list[0])
             insert_meta_one(res, data_type_list[0])
 
@@ -119,57 +105,67 @@ def FileToMongo():
         except Exception as e:
             raise AirflowException(e)
 
-    def get_meta_one(url: str, data_type: str):
-        try:
-            res = requests.get(f"{url}/{data_type}").json()  # test (o), 172.18.0.3(o)
+    start = EmptyOperator(
+        task_id='start'
+    )
+    end = EmptyOperator(
+        task_id='end'
+    )
 
-            # logging.info("get meta one ... {}".format(res))
-            # logging.info("date_type ... {}".format(res["result"]["data_type"]))  ## date_type
-            # logging.info("count_in_dir ... {}".format(res["result"]["count_in_dir"]))  ## count_in_dir
-            # logging.info("list_in_dir ... {}".format(res["result"]["list_in_dir"]))  ## list_in_dir
+    start >> check_schema_exists >> create_table_meta_meta >> [create_table_meta_competition, create_table_meta_match,
+                                                               create_table_meta_lineup, create_table_meta_event]
 
-            return res
-
-        except Exception as e:
-            raise AirflowException(e)
-
-    def insert_meta_one(res: dict, data_type: str):
-        try:
-            count_in_dir = res["result"]["count_in_dir"]
-            list_in_dir = res["result"]["list_in_dir"]
-
-            postgres_hook = PostgresHook(postgres_conn_id="fdp_meta_pg_conn")
-            conn = postgres_hook.get_conn()
-            cur = conn.cursor()
-            # fdp_meta
-            sql = "INSERT INTO meta.fdp_meta(data_type, count_in_dir, count_in_db, reg_date) VALUES('%s','%s','%s',%s)" % (
-                data_type,
-                count_in_dir,
-                "0",
-                "default"
-            )
-            cur.execute(sql)
-
-            # fdp_item
-
-            sql = f'INSERT INTO meta.fdp_{data_type} (data_type, file_path, mongo_flag) VALUES %s'
-            argslist = [(data_type, i, "N") for i in list_in_dir]
-
-            psycopg2.extras.execute_values(cur=cur, sql=sql, argslist=argslist)
-
-            conn.commit()
-
-            return 0
-
-        except Exception as e:
-            raise AirflowException(e)
-
-    # check_schema_exists >> create_table_meta_meta >> create_table_meta_competition >> create_table_meta_match >> create_table_meta_lineup >> create_table_meta_event >> \
-
-
-    check_schema_exists >> \
-    [create_table_meta_meta, create_table_meta_competition, create_table_meta_match, create_table_meta_lineup, create_table_meta_event] >> \
-    [get_meta_competition, get_meta_match, get_meta_lineup, get_meta_event]
+    create_table_meta_competition >> get_meta_competition() >> end
+    create_table_meta_match >> get_meta_match() >> end
+    create_table_meta_lineup >> get_meta_lineup() >> end
+    create_table_meta_event >> get_meta_event() >> end
 
 
 dag = FileToMongo()
+
+
+def get_meta_one(url: str, data_type: str):
+    try:
+        res = requests.get(f"{url}/{data_type}").json()  # test (o), 172.18.0.3(o)
+
+        # logging.info("get meta one ... {}".format(res))
+        # logging.info("date_type ... {}".format(res["result"]["data_type"]))  ## date_type
+        # logging.info("count_in_dir ... {}".format(res["result"]["count_in_dir"]))  ## count_in_dir
+        # logging.info("list_in_dir ... {}".format(res["result"]["list_in_dir"]))  ## list_in_dir
+
+        return res
+
+    except Exception as e:
+        raise AirflowException(e)
+
+
+def insert_meta_one(res: dict, data_type: str):
+    try:
+        count_in_dir = res["result"]["count_in_dir"]
+        list_in_dir = res["result"]["list_in_dir"]
+
+        postgres_hook = PostgresHook(postgres_conn_id="fdp_meta_pg_conn")
+        conn = postgres_hook.get_conn()
+        cur = conn.cursor()
+
+        # fdp_meta
+        sql = "INSERT INTO meta.fdp_meta(data_type, count_in_dir, count_in_db, reg_date) VALUES('%s','%s','%s',%s)" % (
+            data_type,
+            count_in_dir,
+            "0",
+            "default"
+        )
+        cur.execute(sql)
+
+        # fdp_item
+        sql = f'INSERT INTO meta.fdp_{data_type} (data_type, file_path, mongo_flag) VALUES %s'
+        argslist = [(data_type, i, "N") for i in list_in_dir]
+
+        psycopg2.extras.execute_values(cur=cur, sql=sql, argslist=argslist)
+
+        conn.commit()
+
+        return 0
+
+    except Exception as e:
+        raise AirflowException(e)
