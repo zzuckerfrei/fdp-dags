@@ -19,7 +19,7 @@ from airflow.exceptions import AirflowException
 
 
 @dag(
-    dag_id="file_to_mongo_meta",
+    dag_id="file_to_mongo_item",
     catchup=False,
     # schedule_interval="0 * * * *",  # 5시간마다 실행 0시, 5시, 10시, 15시, 20시
     start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
@@ -36,23 +36,30 @@ def FileToMongoItem():
     @task.python
     def get_file_path_competition():
         res = get_file_path("competition")
+        logging.info("get_file_path_competition :: res is ... {}".format(res))
+        # res xcom push
+        return {"res": res}
+
+    @task.python
+    def create_item_competition(**context):
+        # xcom pull
+        xcom = context['task_instance'].xcom_pull(key="return_value", task_ids="get_file_path_competition")
+        logging.info("create_item_competition :: xcom is ... {}".format(xcom))
+        create_item(xcom["res"])
         pass
 
     @task.python
-    def create_item_competition():
+    def update_meta_competition():
         create_item()
         pass
 
     start >> get_file_path_competition() >> create_item_competition() >> update_meta_competition() >> end
-    start >> get_file_path_match() >> create_item_match() >> update_meta_match() >> end
-    start >> get_file_path_lineup() >> create_item_lineup() >> update_meta_lineup() >> end
-    start >> get_file_path_event() >> create_item_event() >> update_meta_event() >> end
+    # start >> get_file_path_match() >> create_item_match() >> update_meta_match() >> end
+    # start >> get_file_path_lineup() >> create_item_lineup() >> update_meta_lineup() >> end
+    # start >> get_file_path_event() >> create_item_event() >> update_meta_event() >> end
 
 
 dag = FileToMongoItem()
-
-
-
 
 # 쿼리 실행 -> data_type, file_path 얻기
 """
@@ -60,6 +67,7 @@ dag = FileToMongoItem()
     FROM META.FDP_LINEUP
    WHERE MONGO_FLAG = 'N'
 ORDER BY FILE_PATH ASC
+   LIMIT 1
 """
 
 
@@ -67,7 +75,7 @@ def get_file_path(data_type: str):
     try:
         with open(os.path.dirname(os.path.realpath(__file__)) + "/sql/item/get_file_path.sql", "r") as f:
             query = f.read()
-        query.format(data_type=data_type)
+        query = query.format(data_type="fdp_" + data_type)
         logging.info("query is ...{}".format(query))
 
         postgres_hook = PostgresHook(postgres_conn_id="fdp_meta_pg_conn")
@@ -93,6 +101,8 @@ def create_item(data_type: str, file_path: str):
         res = requests.get(url=f"{url}", params=params).json()
 
         logging.info(f"-----create_item success {data_type}, {file_path}-----")
+
+        return res
 
     except Exception as e:
         raise AirflowException(e)
