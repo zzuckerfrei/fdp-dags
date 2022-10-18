@@ -37,15 +37,16 @@ def FileToMongoItem():
     def get_file_path_competition():
         res = get_file_path("competition")
         logging.info("get_file_path_competition :: res is ... {}".format(res))
-        # res xcom push
-        return {"res": res}
+        return {"res": res}  # xcom push
 
     @task.python
     def create_item_competition(**context):
         # xcom pull
         xcom = context['task_instance'].xcom_pull(key="return_value", task_ids="get_file_path_competition")
         logging.info("create_item_competition :: xcom is ... {}".format(xcom))
-        create_item(xcom["res"])
+        data_type = xcom["res"][0][0]
+        file_path = xcom["res"][0][1]
+        create_item(data_type, file_path)
         pass
 
     @task.python
