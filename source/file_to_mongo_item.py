@@ -41,17 +41,24 @@ def FileToMongoItem():
 
     @task.python
     def create_item_competition(**context):
-        # xcom pull
         xcom = context['task_instance'].xcom_pull(key="return_value", task_ids="get_file_path_competition")
         logging.info("create_item_competition :: xcom is ... {}".format(xcom))
+
         data_type = xcom["res"][0][0]
         file_path = xcom["res"][0][1]
+
         create_item(data_type, file_path)
         pass
 
     @task.python
-    def update_meta_competition():
-        create_item()
+    def update_meta_competition(**context):
+        xcom = context['task_instance'].xcom_pull(key="return_value", task_ids="get_file_path_competition")
+        logging.info("create_item_competition :: xcom is ... {}".format(xcom))
+
+        data_type = xcom["res"][0][0]
+        file_path = xcom["res"][0][1]
+
+        update_meta(data_type, file_path)
         pass
 
     start >> get_file_path_competition() >> create_item_competition() >> update_meta_competition() >> end
@@ -99,9 +106,10 @@ def create_item(data_type: str, file_path: str):
             "data_type": data_type,
             "org_name": file_path
         }
-        res = requests.get(url=f"{url}", params=params).json()
+        res = requests.post(url=f"{url}", params=params).json()
 
         logging.info(f"-----create_item success {data_type}, {file_path}-----")
+        logging.info(f"res ... {res}")
 
         return res
 
@@ -110,8 +118,26 @@ def create_item(data_type: str, file_path: str):
 
 
 # 성공시 meta(count_in_db), 각item(mongo_flag) 업데이트
-def update_meta():
+def update_meta(data_type: str, file_path: str):
     try:
+        # fdp_meta update
+        with open(os.path.dirname(os.path.realpath(__file__)) + "/sql/meta/update_table_meta.sql", "r") as f:
+            query = f.read()
+        query = query.format(data_type=data_type)
+        logging.info("query is ...{}".format(query))
+
+        postgres_hook = PostgresHook(postgres_conn_id="fdp_meta_pg_conn")
+        conn = postgres_hook.get_conn()
+        cur = conn.cursor()
+        cur.execute(query)
+
+        # fdp_item update
+        # with open(os.path.dirname(os.path.realpath(__file__)) + "/sql/meta/update_table_meta.sql", "r") as f:
+        #     query = f.read()
+        # query = query.format(data_type="fdp_" + data_type)
+        # logging.info("query is ...{}".format(query))
+
+
         pass
     except Exception as e:
         raise AirflowException(e)
