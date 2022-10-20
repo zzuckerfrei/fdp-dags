@@ -21,7 +21,7 @@ from airflow.exceptions import AirflowException
 @dag(
     dag_id="file_to_mongo_item",
     catchup=False,
-    # schedule_interval="0 * * * *",  # 5시간마다 실행 0시, 5시, 10시, 15시, 20시
+    # schedule_interval="* * * * *",  # 5시간마다 실행 0시, 5시, 10시, 15시, 20시
     start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
 )
 def FileToMongoItem():
@@ -47,8 +47,8 @@ def FileToMongoItem():
         data_type = xcom["res"][0][0]
         file_path = xcom["res"][0][1]
 
-        create_item(data_type, file_path)
-        pass
+        res = create_item(data_type, file_path)
+        return res
 
     @task.python
     def update_meta_competition(**context):
@@ -59,7 +59,6 @@ def FileToMongoItem():
         file_path = xcom["res"][0][1]
 
         update_meta(data_type, file_path)
-        pass
 
     start >> get_file_path_competition() >> create_item_competition() >> update_meta_competition() >> end
     # start >> get_file_path_match() >> create_item_match() >> update_meta_match() >> end
@@ -123,21 +122,22 @@ def update_meta(data_type: str, file_path: str):
         # fdp_meta update
         with open(os.path.dirname(os.path.realpath(__file__)) + "/sql/meta/update_table_meta.sql", "r") as f:
             query = f.read()
-        query = query.format(data_type=data_type)
-        logging.info("query is ...{}".format(query))
+        query_meta = query.format(data_type=data_type)
+        logging.info("query_meta is ...{}".format(query_meta))
 
         postgres_hook = PostgresHook(postgres_conn_id="fdp_meta_pg_conn")
         conn = postgres_hook.get_conn()
         cur = conn.cursor()
-        cur.execute(query)
+        cur.execute(query_meta)
 
         # fdp_item update
-        # with open(os.path.dirname(os.path.realpath(__file__)) + "/sql/meta/update_table_meta.sql", "r") as f:
-        #     query = f.read()
-        # query = query.format(data_type="fdp_" + data_type)
-        # logging.info("query is ...{}".format(query))
+        with open(os.path.dirname(os.path.realpath(__file__)) + "/sql/item/update_table_item.sql", "r") as f:
+            query = f.read()
+        query_item = query.format(data_type=data_type, file_path=file_path)
+        logging.info("query_item is ...{}".format(query_item))
+        cur.execute(query_item)
 
+        conn.commit()
 
-        pass
     except Exception as e:
         raise AirflowException(e)
