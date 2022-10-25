@@ -14,7 +14,7 @@ from airflow.exceptions import AirflowException
 
 
 @dag(
-    dag_id="file_to_mongo",
+    dag_id="test_file_to_mongo",
     catchup=False,
     # schedule_interval="0 * * * *",  # 5시간마다 실행 0시, 5시, 10시, 15시, 20시
     start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
