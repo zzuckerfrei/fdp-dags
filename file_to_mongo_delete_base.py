@@ -37,11 +37,21 @@ def FileToMongoDeleteMetaBase():
 
     @task.python
     def delete_meta():
+        # postgres
         res = fileToMongoMeta.delete_meta("competition")
         logging.info(f"delete_meta :: res is ... {res}")
+
+        res = fileToMongoItem.delete_item("competition")
+        logging.info(f"delete_item :: res is ... {res}")
+
         return {"res": res}  # xcom push
 
-    start >> delete_meta() >> end
+    @task.python
+    def delete_item():
+        # mongo
+        return {"res": res}  # xcom push
+
+    start >> delete_meta() >> delete_item() >> end
 
 
 dag = FileToMongoDeleteMetaBase()

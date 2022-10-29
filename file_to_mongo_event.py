@@ -18,6 +18,7 @@ from airflow.exceptions import AirflowTaskTimeout
 from airflow.exceptions import AirflowException
 
 from fdp_package import fileToMongoItem
+from fdp_package import fileToMongoMeta
 
 
 @dag(
@@ -61,7 +62,7 @@ def FileToMongoEvent():
         data_type = xcom["res"][0][0]
         file_path = xcom["res"][0][1]
 
-        fileToMongoItem.update_meta(data_type, file_path)
+        fileToMongoMeta.update_meta(data_type, file_path)
 
     start >> get_file_path_event() >> create_item_event() >> update_meta_event() >> end
 
