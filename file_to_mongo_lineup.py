@@ -24,10 +24,14 @@ from fdp_package import fileToMongoMeta
 @dag(
     dag_id="file_to_mongo_lineup",
     catchup=False,
-    # schedule_interval="* * * * *",  # 5시간마다 실행 0시, 5시, 10시, 15시, 20시
+    schedule_interval="*/4 * * * *",  # every 4 min
     start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
+    tags=["file_to_mongo", "item", "lineup"]
 )
 def FileToMongoLineup():
+    """
+    mongoDB의 fdp.lineup collection에 document 적재
+    """
     start = EmptyOperator(
         task_id='start'
     )
@@ -38,7 +42,9 @@ def FileToMongoLineup():
 
     @task.python
     def get_file_path_lineup():
-        res = fileToMongoItem.get_file_path("lineup")
+        data_type_list = Variable.get("data_type_list", deserialize_json=True)
+
+        res = fileToMongoItem.get_file_path(data_type_list[2])
         logging.info(f"get_file_path_lineup :: res is ... {res}")
         return {"res": res}  # xcom push
 

@@ -22,12 +22,12 @@ from fdp_package import fileToMongoMeta
 
 
 @dag(
-    dag_id="file_to_mongo_delete_base",
+    dag_id="file_to_mongo_delete_lineup",
     catchup=False,
     # schedule_interval="* * * * *",  # 5시간마다 실행 0시, 5시, 10시, 15시, 20시
     start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
 )
-def FileToMongoDeleteBase():
+def FileToMongoDeleteLineup():
     start = EmptyOperator(
         task_id='start'
     )
@@ -58,4 +58,4 @@ def FileToMongoDeleteBase():
     start >> delete_item() >> delete_meta() >> end
 
 
-dag = FileToMongoDeleteBase()
+dag = FileToMongoDeleteLineup()

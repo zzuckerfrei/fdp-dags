@@ -24,10 +24,14 @@ from fdp_package import fileToMongoMeta
 @dag(
     dag_id="file_to_mongo_match",
     catchup=False,
-    # schedule_interval="* * * * *",  # 5시간마다 실행 0시, 5시, 10시, 15시, 20시
+    schedule_interval="*/5 * * * *",  # every 5 min
     start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
+    tags=["file_to_mongo", "item", "match"]
 )
 def FileToMongoMatch():
+    """
+    mongoDB의 fdp.match collection에 document 적재
+    """
     start = EmptyOperator(
         task_id='start'
     )
@@ -38,7 +42,9 @@ def FileToMongoMatch():
 
     @task.python
     def get_file_path_match():
-        res = fileToMongoItem.get_file_path("match")
+        data_type_list = Variable.get("data_type_list", deserialize_json=True)
+
+        res = fileToMongoItem.get_file_path(data_type_list[1])
         logging.info(f"get_file_path_match :: res is ... {res}")
         return {"res": res}  # xcom push
 

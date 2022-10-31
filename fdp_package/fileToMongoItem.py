@@ -44,17 +44,16 @@ def create_item(data_type: str, file_path: str):
 
 def delete_item(data_type: str):
     try:
-        with open(Variable.get("sql_base_dir") + "item/delete_item.sql", "r") as f:
-            query = f.read()
-        query_meta = query.format(data_type=data_type)
-        logging.info("query is ...{}".format(query_meta))
+        url = Variable.get("url_item_delete")
+        params = {
+            "data_type": data_type,
+        }
+        res = requests.delete(url=f"{url}", params=params).json()
 
-        postgres_hook = PostgresHook(postgres_conn_id="fdp_meta_pg_conn")
-        conn = postgres_hook.get_conn()
-        cur = conn.cursor()
-        cur.execute(query_meta)
+        logging.info(f"-----delete_item success {data_type}")
+        logging.info(f"res ... {res}")
 
-        conn.commit()
+        return res
 
     except Exception as e:
         raise Exception(e)

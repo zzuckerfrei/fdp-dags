@@ -22,12 +22,12 @@ from fdp_package import fileToMongoMeta
 
 
 @dag(
-    dag_id="file_to_mongo_delete_base",
+    dag_id="file_to_mongo_delete_event",
     catchup=False,
     # schedule_interval="* * * * *",  # 5시간마다 실행 0시, 5시, 10시, 15시, 20시
     start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
 )
-def FileToMongoDeleteBase():
+def FileToMongoDeleteEvent():
     start = EmptyOperator(
         task_id='start'
     )
@@ -40,10 +40,10 @@ def FileToMongoDeleteBase():
     def delete_item():
         # mongo
         data_type_list = Variable.get("data_type_list", deserialize_json=True)
-        res = fileToMongoItem.delete_item(data_type_list[2])  # 0 competition, 1 match, 2 lineup, 3 event
+        res = fileToMongoItem.delete_item(data_type_list[3])  # 0 competition, 1 match, 2 lineup, 3 event
         logging.info(f"delete_item :: res is ... {res}")
 
-        return {"res": res, "data_type": data_type_list[2]}  # xcom push
+        return {"res": res, "data_type": data_type_list[3]}  # xcom push
 
     @task.python
     def delete_meta(**context):
@@ -58,4 +58,4 @@ def FileToMongoDeleteBase():
     start >> delete_item() >> delete_meta() >> end
 
 
-dag = FileToMongoDeleteBase()
+dag = FileToMongoDeleteEvent()

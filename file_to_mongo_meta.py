@@ -16,14 +16,24 @@ from airflow.models.variable import Variable
 from airflow.exceptions import AirflowTaskTimeout
 from airflow.exceptions import AirflowException
 
+from fdp_package import fileToMongoMeta
 
 @dag(
     dag_id="file_to_mongo_meta",
     catchup=False,
-    # schedule_interval="0 * * * *",  # 5시간마다 실행 0시, 5시, 10시, 15시, 20시
+    schedule_interval="0 * * * *",  # 1 day, 0:00:00
     start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
+    tags=["file_to_mongo", "first_execute", "meta"]
 )
 def FileToMongo():
+    """
+    가장 먼저 실행되어야 하는 dag \n
+    메타 데이터(meta스키마의 모든 테이블)를 적재 \n
+    """
+    start = EmptyOperator(
+        task_id='start'
+    )
+
     check_schema_exists = PostgresOperator(
         task_id="create_schema_meta",
         postgres_conn_id="fdp_meta_pg_conn",
@@ -63,11 +73,11 @@ def FileToMongo():
     @task.python
     def get_meta_competition():
         try:
-            url = Variable.get("url_meta_read_one")  # http://172.18.0.3:8000/api/v1/meta/read_one
+            url = Variable.get("url_meta_create")  # http://172.18.0.3:8000/api/v1/meta/read_one
             data_type_list = Variable.get("data_type_list",
                                           deserialize_json=True)  # ["competition", "match", "lineup", "event"]
-            res = get_meta_one(url, data_type_list[0])
-            insert_meta_one(res, data_type_list[0])
+            res = fileToMongoMeta.get_meta_one(url, data_type_list[0])
+            fileToMongoMeta.insert_meta_one(res, data_type_list[0])
 
         except Exception as e:
             raise AirflowException(e)
@@ -75,10 +85,10 @@ def FileToMongo():
     @task.python
     def get_meta_match():
         try:
-            url = Variable.get("url_meta_read_one")
+            url = Variable.get("url_meta_create")
             data_type_list = Variable.get("data_type_list", deserialize_json=True)
-            res = get_meta_one(url, data_type_list[1])
-            insert_meta_one(res, data_type_list[1])
+            res = fileToMongoMeta.get_meta_one(url, data_type_list[1])
+            fileToMongoMeta.insert_meta_one(res, data_type_list[1])
 
         except Exception as e:
             raise AirflowException(e)
@@ -86,10 +96,10 @@ def FileToMongo():
     @task.python
     def get_meta_lineup():
         try:
-            url = Variable.get("url_meta_read_one")
+            url = Variable.get("url_meta_create")
             data_type_list = Variable.get("data_type_list", deserialize_json=True)
-            res = get_meta_one(url, data_type_list[2])
-            insert_meta_one(res, data_type_list[2])
+            res = fileToMongoMeta.get_meta_one(url, data_type_list[2])
+            fileToMongoMeta.insert_meta_one(res, data_type_list[2])
 
         except Exception as e:
             raise AirflowException(e)
@@ -97,17 +107,14 @@ def FileToMongo():
     @task.python
     def get_meta_event():
         try:
-            url = Variable.get("url_meta_read_one")
+            url = Variable.get("url_meta_create")
             data_type_list = Variable.get("data_type_list", deserialize_json=True)
-            res = get_meta_one(url, data_type_list[3])
-            insert_meta_one(res, data_type_list[3])
+            res = fileToMongoMeta.get_meta_one(url, data_type_list[3])
+            fileToMongoMeta.insert_meta_one(res, data_type_list[3])
 
         except Exception as e:
             raise AirflowException(e)
 
-    start = EmptyOperator(
-        task_id='start'
-    )
     end = EmptyOperator(
         task_id='end'
     )
@@ -124,48 +131,3 @@ def FileToMongo():
 dag = FileToMongo()
 
 
-def get_meta_one(url: str, data_type: str):
-    try:
-        res = requests.get(f"{url}/{data_type}").json()  # test (o), 172.18.0.3(o)
-
-        # logging.info("get meta one ... {}".format(res))
-        # logging.info("date_type ... {}".format(res["result"]["data_type"]))  ## date_type
-        # logging.info("count_in_dir ... {}".format(res["result"]["count_in_dir"]))  ## count_in_dir
-        # logging.info("list_in_dir ... {}".format(res["result"]["list_in_dir"]))  ## list_in_dir
-
-        return res
-
-    except Exception as e:
-        raise AirflowException(e)
-
-
-def insert_meta_one(res: dict, data_type: str):
-    try:
-        count_in_dir = res["result"]["count_in_dir"]
-        list_in_dir = res["result"]["list_in_dir"]
-
-        postgres_hook = PostgresHook(postgres_conn_id="fdp_meta_pg_conn")
-        conn = postgres_hook.get_conn()
-        cur = conn.cursor()
-
-        # fdp_meta
-        sql = "INSERT INTO meta.fdp_meta(data_type, count_in_dir, count_in_db, reg_date) VALUES('%s','%s','%s',%s)" % (
-            data_type,
-            count_in_dir,
-            "0",
-            "default"
-        )
-        cur.execute(sql)
-
-        # fdp_item
-        sql = f'INSERT INTO meta.fdp_{data_type} (data_type, file_path, mongo_flag) VALUES %s'
-        argslist = [(data_type, i, "N") for i in list_in_dir]
-
-        psycopg2.extras.execute_values(cur=cur, sql=sql, argslist=argslist)
-
-        conn.commit()
-
-        return 0
-
-    except Exception as e:
-        raise AirflowException(e)

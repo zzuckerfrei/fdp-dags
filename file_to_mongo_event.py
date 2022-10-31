@@ -24,10 +24,14 @@ from fdp_package import fileToMongoMeta
 @dag(
     dag_id="file_to_mongo_event",
     catchup=False,
-    # schedule_interval="* * * * *",  # 5시간마다 실행 0시, 5시, 10시, 15시, 20시
+    schedule_interval="*/3 * * * *",  # every 3 min
     start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
+    tags=["file_to_mongo", "item", "event"]
 )
 def FileToMongoEvent():
+    """
+    mongoDB의 fdp.event collection에 document 적재
+    """
     start = EmptyOperator(
         task_id='start'
     )
@@ -38,7 +42,9 @@ def FileToMongoEvent():
 
     @task.python
     def get_file_path_event():
-        res = fileToMongoItem.get_file_path("event")
+        data_type_list = Variable.get("data_type_list", deserialize_json=True)
+
+        res = fileToMongoItem.get_file_path(data_type_list[3])
         logging.info(f"get_file_path_event :: res is ... {res}")
         return {"res": res}  # xcom push
 

@@ -24,10 +24,14 @@ from fdp_package import fileToMongoMeta
 @dag(
     dag_id="file_to_mongo_competition",
     catchup=False,
-    # schedule_interval="* * * * *",  # 5시간마다 실행 0시, 5시, 10시, 15시, 20시
+    schedule_interval="*/30 * * * *",  # every 30 min
     start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
+    tags=["file_to_mongo", "item", "competition"]
 )
 def FileToMongoCompetition():
+    """
+    mongoDB의 fdp.competition collection에 document 적재
+    """
     start = EmptyOperator(
         task_id='start'
     )
@@ -38,8 +42,11 @@ def FileToMongoCompetition():
 
     @task.python
     def get_file_path_competition():
-        res = fileToMongoItem.get_file_path("competition")
+        data_type_list = Variable.get("data_type_list", deserialize_json=True)
+
+        res = fileToMongoItem.get_file_path(data_type_list[0])
         logging.info(f"get_file_path_competition :: res is ... {res}")
+
         return {"res": res}  # xcom push
 
     @task.python
@@ -57,7 +64,7 @@ def FileToMongoCompetition():
     @task.python
     def update_meta_competition(**context):
         xcom = context['task_instance'].xcom_pull(key="return_value", task_ids="get_file_path_competition")
-        logging.info(f"create_item_competition :: xcom is ... {xcom}")
+        logging.info(f"update_meta_competition :: xcom is ... {xcom}")
 
         data_type = xcom["res"][0][0]
         file_path = xcom["res"][0][1]
