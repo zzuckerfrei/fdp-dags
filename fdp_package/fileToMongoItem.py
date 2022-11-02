@@ -3,6 +3,7 @@ import requests
 import logging
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.models.variable import Variable
+from airflow.exceptions import AirflowException
 
 
 def get_file_path(data_type: str):
@@ -18,10 +19,15 @@ def get_file_path(data_type: str):
         cur.execute(query)
         result = cur.fetchall()
 
-        return result
+        # 만약 한 건도 없을 경우 에러 발생
+        if len(result[0]) == 0:
+            raise FileNotFoundError("get_file_path :: NO DATA")
 
     except Exception as e:
-        raise Exception(e)
+        raise AirflowException(e)
+
+    else:
+        return result
 
 
 def create_item(data_type: str, file_path: str):
@@ -39,7 +45,7 @@ def create_item(data_type: str, file_path: str):
         return res
 
     except Exception as e:
-        raise Exception(e)
+        raise AirflowException(e)
 
 
 def delete_item(data_type: str):
@@ -56,7 +62,4 @@ def delete_item(data_type: str):
         return res
 
     except Exception as e:
-        raise Exception(e)
-
-
-
+        raise AirflowException(e)

@@ -37,22 +37,46 @@ def FileToMongoItemBase():
     )
 
     @task.python
-    def get_file_path_competition():
-        res = fileToMongoItem.get_file_path("competition")
-        logging.info(f"get_file_path_competition :: res is ... {res}")
-        return {"res": res}  # xcom push
+    def get_file_path_competition(**context):
+        try:
+            data_type_list = Variable.get("data_type_list", deserialize_json=True)
 
-    @task.python
+            res = fileToMongoItem.get_file_path(data_type_list[0])
+            logging.info(f"get_file_path_competition :: res is ... {res}")
+
+            context['task_instance'].xcom_push(key='result', value=res)
+
+        except Exception as e:
+            context['task_instance'].xcom_push(key='status', value=1)
+            raise AirflowException(e)
+
+        else:
+            context['task_instance'].xcom_push(key='status', value=0)
+
+    @task.python(sla=datetime.timedelta(seconds=60))  # 여기까지 작업 2022-11-02 수요일. 아직 테스트는 안 함
     def create_item_competition(**context):
-        xcom = context['task_instance'].xcom_pull(key="return_value", task_ids="get_file_path_competition")
-        logging.info("create_item_competition :: xcom is ... {}".format(xcom))
+        try:
+            status = context['task_instance'].xcom_pull(key="status", task_ids="get_file_path_competition")
+            if status == 1:
+                raise Exception("pre task status is 1")
 
-        data_type = xcom["res"][0][0]
-        file_path = xcom["res"][0][1]
+            xcom = context['task_instance'].xcom_pull(key="return_value", task_ids="get_file_path_competition")
+            logging.info("create_item_competition :: xcom is ... {}".format(xcom))
 
-        res = fileToMongoItem.create_item(data_type, file_path)
-        logging.info(f"res ... {res}")
-        return res
+            data_type = xcom["res"][0][0]
+            file_path = xcom["res"][0][1]
+
+            res = fileToMongoItem.create_item(data_type, file_path)
+            logging.info(f"res ... {res}")
+
+            context['task_instance'].xcom_push(key='result', value=res)
+
+        except Exception as e:
+            context['task_instance'].xcom_push(key='status', value=1)
+            raise AirflowException(e)
+
+        else:
+            context['task_instance'].xcom_push(key='status', value=0)
 
     @task.python
     def update_meta_competition(**context):
