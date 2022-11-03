@@ -54,17 +54,22 @@ def insert_meta_one(res: dict, data_type: str):
 
 
 def update_meta(data_type: str, file_path: str):
-    try:
-        # fdp_meta update
-        with open(Variable.get("sql_base_dir") + "meta/update_table_meta.sql", "r") as f:
-            query = f.read()
-        query_meta = query.format(data_type=data_type)
-        logging.info("query_meta is ...{}".format(query_meta))
+    postgres_hook = PostgresHook(postgres_conn_id="fdp_meta_pg_conn")
+    conn = postgres_hook.get_conn()
+    cur = conn.cursor()
 
-        postgres_hook = PostgresHook(postgres_conn_id="fdp_meta_pg_conn")
-        conn = postgres_hook.get_conn()
-        cur = conn.cursor()
-        cur.execute(query_meta)
+    try:
+        # 카운트를 중복 증가시키지 않기 위해 체크
+        with open(Variable.get("sql_base_dir") + "item/select_table_item.sql", "r") as f:
+            query = f.read()
+        query = query.format(data_type=data_type, file_path=file_path)
+        logging.info("query_item is ...{}".format(query))
+        cur.execute(query)
+        check = cur.fetchall()
+        if check:
+            raise ValueError(f"{file_path} is already in mongoDB")
+
+        cur.execute("BEGIN;")
 
         # fdp_item update
         with open(Variable.get("sql_base_dir") + "item/update_table_item.sql", "r") as f:
@@ -73,9 +78,18 @@ def update_meta(data_type: str, file_path: str):
         logging.info("query_item is ...{}".format(query_item))
         cur.execute(query_item)
 
-        conn.commit()
+        # fdp_meta update
+        with open(Variable.get("sql_base_dir") + "meta/update_table_meta.sql", "r") as f:
+            query = f.read()
+        query_meta = query.format(data_type=data_type)
+        logging.info("query_meta is ...{}".format(query_meta))
+        cur.execute(query_meta)
+
+        cur.execute("COMMIT;")
+        # conn.commit()
 
     except Exception as e:
+        cur.execute("ROLLBACK;")
         raise Exception(e)
 
 

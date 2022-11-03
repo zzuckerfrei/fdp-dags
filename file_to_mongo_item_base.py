@@ -24,8 +24,9 @@ from fdp_package import fileToMongoMeta
 @dag(
     dag_id="file_to_mongo_item_base",
     catchup=False,
-    # schedule_interval="* * * * *",  # 5시간마다 실행 0시, 5시, 10시, 15시, 20시
-    start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
+    schedule_interval="* * * * *",  # every 1 min
+    start_date=pendulum.datetime(2022, 11, 3, tz="UTC"),
+    tags=["test", "base", "item"]
 )
 def FileToMongoItemBase():
     start = EmptyOperator(
@@ -41,7 +42,7 @@ def FileToMongoItemBase():
         try:
             data_type_list = Variable.get("data_type_list", deserialize_json=True)
 
-            res = fileToMongoItem.get_file_path(data_type_list[0])
+            res = fileToMongoItem.get_file_path(data_type_list[3])  # 0 competition, 1 match, 2 lineup, 3 event
             logging.info(f"get_file_path_competition :: res is ... {res}")
 
             context['task_instance'].xcom_push(key='result', value=res)
@@ -58,13 +59,13 @@ def FileToMongoItemBase():
         try:
             status = context['task_instance'].xcom_pull(key="status", task_ids="get_file_path_competition")
             if status == 1:
-                raise Exception("pre task status is 1")
+                raise Exception("previous task status is 1")
 
-            xcom = context['task_instance'].xcom_pull(key="return_value", task_ids="get_file_path_competition")
+            xcom = context['task_instance'].xcom_pull(key="result", task_ids="get_file_path_competition")
             logging.info("create_item_competition :: xcom is ... {}".format(xcom))
 
-            data_type = xcom["res"][0][0]
-            file_path = xcom["res"][0][1]
+            data_type = xcom[0][0]
+            file_path = xcom[0][1]
 
             res = fileToMongoItem.create_item(data_type, file_path)
             logging.info(f"res ... {res}")
@@ -80,13 +81,25 @@ def FileToMongoItemBase():
 
     @task.python
     def update_meta_competition(**context):
-        xcom = context['task_instance'].xcom_pull(key="return_value", task_ids="get_file_path_competition")
-        logging.info(f"create_item_competition :: xcom is ... {xcom}")
+        try:
+            status = context['task_instance'].xcom_pull(key="status", task_ids="create_item_competition")
+            if status == 1:
+                raise Exception("previous task status is 1")
 
-        data_type = xcom["res"][0][0]
-        file_path = xcom["res"][0][1]
+            xcom = context['task_instance'].xcom_pull(key="result", task_ids="get_file_path_competition")
+            logging.info(f"create_item_competition :: xcom is ... {xcom}")
 
-        fileToMongoMeta.update_meta(data_type, file_path)
+            data_type = xcom[0][0]
+            file_path = xcom[0][1]
+
+            fileToMongoMeta.update_meta(data_type, file_path)
+
+        except Exception as e:
+            context['task_instance'].xcom_push(key='status', value=1)
+            raise AirflowException(e)
+
+        else:
+            context['task_instance'].xcom_push(key='status', value=0)
 
     start >> get_file_path_competition() >> create_item_competition() >> update_meta_competition() >> end
     # start >> get_file_path_match() >> create_item_match() >> update_meta_match() >> end

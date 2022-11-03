@@ -7,15 +7,16 @@ from airflow.exceptions import AirflowException
 
 
 def get_file_path(data_type: str):
+    postgres_hook = PostgresHook(postgres_conn_id="fdp_meta_pg_conn")
+    conn = postgres_hook.get_conn()
+    cur = conn.cursor()
+
     try:
         with open(Variable.get("sql_base_dir") + "item/get_file_path.sql", "r") as f:
             query = f.read()
         query = query.format(data_type="fdp_" + data_type)
         logging.info("query is ...{}".format(query))
 
-        postgres_hook = PostgresHook(postgres_conn_id="fdp_meta_pg_conn")
-        conn = postgres_hook.get_conn()
-        cur = conn.cursor()
         cur.execute(query)
         result = cur.fetchall()
 
@@ -24,7 +25,7 @@ def get_file_path(data_type: str):
             raise FileNotFoundError("get_file_path :: NO DATA")
 
     except Exception as e:
-        raise AirflowException(e)
+        raise Exception(e)
 
     else:
         return result
@@ -37,6 +38,7 @@ def create_item(data_type: str, file_path: str):
             "data_type": data_type,
             "org_name": file_path
         }
+        # todo mongo 트랜잭션 추가하기
         res = requests.post(url=f"{url}", params=params).json()
 
         logging.info(f"-----create_item success {data_type}, {file_path}-----")
