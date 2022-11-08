@@ -39,6 +39,7 @@ def create_item(data_type: str, file_path: str):
             "org_name": file_path
         }
         # todo mongo 트랜잭션 추가하기
+        # 복잡한 mongodb 트랜잭션 대신 한 번 select해서 존재여부 체크하고 없을 때만 적재 할까?
         res = requests.post(url=f"{url}", params=params).json()
 
         logging.info(f"-----create_item success {data_type}, {file_path}-----")

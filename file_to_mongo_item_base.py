@@ -54,7 +54,7 @@ def FileToMongoItemBase():
         else:
             context['task_instance'].xcom_push(key='status', value=0)
 
-    @task.python(sla=datetime.timedelta(seconds=60))  # 여기까지 작업 2022-11-02 수요일. 아직 테스트는 안 함
+    @task.python(sla=datetime.timedelta(seconds=60))  # 아직 테스트는 안 함
     def create_item_competition(**context):
         try:
             status = context['task_instance'].xcom_pull(key="status", task_ids="get_file_path_competition")
