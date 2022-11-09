@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 import logging
 from airflow.providers.postgres.hooks.postgres import PostgresHook
@@ -33,14 +34,20 @@ def get_file_path(data_type: str):
 
 def create_item(data_type: str, file_path: str):
     try:
-        url = Variable.get("url_item_create")
+        url_item_read_one = Variable.get("url_item_read_one")
+        url_item_create = Variable.get("url_item_create")
         params = {
             "data_type": data_type,
             "org_name": file_path
         }
+
         # todo mongo 트랜잭션 추가하기
         # 복잡한 mongodb 트랜잭션 대신 한 번 select해서 존재여부 체크하고 없을 때만 적재 할까?
-        res = requests.post(url=f"{url}", params=params).json()
+        check = requests.get(url=f"{url_item_read_one}", params=params).json()
+        if check["result"] is not None:
+            raise FileExistsError(f"create_item :: {file_path} is already in MongoDB")
+
+        res = requests.post(url=f"{url_item_create}", params=params).json()
 
         logging.info(f"-----create_item success {data_type}, {file_path}-----")
         logging.info(f"res ... {res}")

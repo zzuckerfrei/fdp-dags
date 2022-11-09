@@ -67,7 +67,7 @@ def update_meta(data_type: str, file_path: str):
         cur.execute(query)
         check = cur.fetchall()
         if check:
-            raise ValueError(f"{file_path} is already in mongoDB")
+            raise FileExistsError(f"{file_path} is already in mongoDB")
 
         cur.execute("BEGIN;")
 
