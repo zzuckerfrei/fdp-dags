@@ -24,7 +24,7 @@ from fdp_package import fileToMongoMeta
 @dag(
     dag_id="file_to_mongo_delete_competition",
     catchup=False,
-    # schedule_interval="* * * * *",  # 5시간마다 실행 0시, 5시, 10시, 15시, 20시
+    schedule_interval='@once',  # 대기하고 있다가, 내가 원할 때만 실행
     start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
 )
 def FileToMongoDeleteCompetition():
