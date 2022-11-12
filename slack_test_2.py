@@ -8,7 +8,7 @@ from airflow.utils.dates import days_ago
 
 
 default_args = {
-   'on_failure_callback': SlackAlert.fail_alert
+   'on_failure_callback': SlackAlert.fail_alert  # dag 실행 중 실패할 경우 호출하는 함수
 }
 
 
@@ -30,7 +30,7 @@ def SlackTest2():
     )
 
     @task.python
-    def fail(**context):
+    def fail_task(**context):
         try:
             res = 1 / 0
 
@@ -41,7 +41,19 @@ def SlackTest2():
         else:
             context['task_instance'].xcom_push(key='status', value=0)
 
-    start >> fail() >> end
+    @task.python
+    def success_task(**context):
+        try:
+            res = 1
+
+        except Exception as e:
+            context['task_instance'].xcom_push(key='status', value=1)
+            raise Exception(e)
+
+        else:
+            context['task_instance'].xcom_push(key='status', value=0)
+
+    start >> success_task() >> fail_task() >> end
 
 
 dag = SlackTest2()
