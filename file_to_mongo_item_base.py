@@ -19,13 +19,20 @@ from airflow.exceptions import AirflowException
 
 from fdp_package import fileToMongoItem
 from fdp_package import fileToMongoMeta
+from fdp_package import SlackAlert
+
+
+default_args = {
+   'on_failure_callback': SlackAlert.fail_alert  # dag 실행 중 실패할 경우 호출하는 함수
+}
 
 
 @dag(
     dag_id="file_to_mongo_item_base",
     catchup=False,
     schedule_interval="* * * * *",  # every 1 min
-    start_date=pendulum.datetime(2022, 11, 3, tz="UTC"),
+    start_date=pendulum.datetime(2022, 11, 12, tz="UTC"),
+    default_args=default_args,
     tags=["test", "base", "item"]
 )
 def FileToMongoItemBase():

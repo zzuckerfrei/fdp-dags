@@ -14,7 +14,7 @@ def fail_alert(context) -> None:
     # dag_run 객체 가져오기
     dag_instance = context["dag_run"]  # DagRun(airflow.models.dagrun.py)
     dag_id = dag_instance.dag_id
-    message += f"- dag_id :: {dag_id}\n\n"
+    message += f"*Dag* : {dag_id}\n\n"
 
     # 해당 dag에 속한 task instances 목록을 가져옴
     task_instances = dag_instance.get_task_instances()
@@ -25,12 +25,12 @@ def fail_alert(context) -> None:
         if state == "failed":
             completed = False
         log_url = task.log_url
-        message += f"- task_id :: {task_id},   state :: {state}\n" \
-                   f"\t- log_url : <{log_url}|link>\n"
+        message += f"*Task* : {task_id},   state :: {state}\n" \
+                   f"\t<{log_url}|Log URL>\n"
 
     execution_date = dag_instance.execution_date
     execution_date_kst = execution_date.replace(tzinfo=KST)  # KST (이 부분이 안먹음)
-    message += f"- execution_date :: {execution_date} (KST : {execution_date_kst}\n"
+    message += f"*execution_date* :: {execution_date} (KST : {execution_date_kst}\n"
 
     alert = SlackWebhookOperator(
         task_id='slack_fail',
