@@ -29,9 +29,10 @@ default_args = {
 
 @dag(
     dag_id="file_to_mongo_item_base",
-    catchup=False,
-    schedule_interval="* * * * *",  # every 1 min
-    start_date=pendulum.datetime(2022, 11, 12, tz="UTC"),
+    catchup=True,
+    schedule_interval="*/5 * * * *",  # every 5 min
+    start_date=pendulum.datetime(2022, 11, 14, 20, 0, 0, tz="UTC"),
+    max_active_runs=1,
     default_args=default_args,
     tags=["test", "base", "item"]
 )
