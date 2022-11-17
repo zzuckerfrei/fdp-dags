@@ -16,8 +16,8 @@ default_args = {
     dag_id="slack_test_2",
     start_date=pendulum.datetime(2022, 11, 10, 2, 0, 0, tz="UTC"),
     # max_active_runs=1,
-    catchup=True,
-    schedule_interval="0 2 * * *",
+    catchup=False,
+    schedule_interval="* * * * *",
     default_args=default_args,
 )
 def SlackTest2():
