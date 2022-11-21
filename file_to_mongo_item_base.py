@@ -95,7 +95,7 @@ def FileToMongoItemBase():
                 raise Exception("previous task status is 1")
 
             xcom = context['task_instance'].xcom_pull(key="result", task_ids="get_file_path_competition")
-            logging.info(f"create_item_competition :: xcom is ... {xcom}")
+            logging.info(f"xcom is ... {xcom}")
 
             data_type = xcom[0][0]
             file_path = xcom[0][1]
