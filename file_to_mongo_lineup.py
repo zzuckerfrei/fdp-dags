@@ -26,11 +26,12 @@ default_args = {
    'on_failure_callback': SlackAlert.fail_alert  # dag 실행 중 실패할 경우 호출하는 함수
 }
 
+
 @dag(
     dag_id="file_to_mongo_lineup",
-    catchup=False,
+    catchup=True,
     schedule_interval="*/4 * * * *",  # every 4 min
-    start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
+    start_date=pendulum.datetime(2022, 11, 22, tz="UTC"),
     max_active_runs=1,
     default_args=default_args,
     tags=["file_to_mongo", "item", "lineup"]

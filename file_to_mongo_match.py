@@ -31,7 +31,7 @@ default_args = {
     dag_id="file_to_mongo_match",
     catchup=True,
     schedule_interval="*/5 * * * *",  # every 5 min
-    start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
+    start_date=pendulum.datetime(2022, 11, 22, tz="UTC"),
     max_active_runs=1,
     default_args=default_args,
     tags=["file_to_mongo", "item", "match"]

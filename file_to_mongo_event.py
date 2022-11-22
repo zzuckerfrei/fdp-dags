@@ -29,9 +29,9 @@ default_args = {
 
 @dag(
     dag_id="file_to_mongo_event",
-    catchup=False,
+    catchup=True,
     schedule_interval="*/3 * * * *",  # every 3 min
-    start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
+    start_date=pendulum.datetime(2022, 11, 22, tz="UTC"),
     max_active_runs=1,
     default_args=default_args,
     tags=["file_to_mongo", "item", "event"]
