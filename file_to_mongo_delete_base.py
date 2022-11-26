@@ -19,6 +19,12 @@ from airflow.exceptions import AirflowException
 
 from fdp_package import fileToMongoItem
 from fdp_package import fileToMongoMeta
+from fdp_package import SlackAlert
+
+
+default_args = {
+   'on_failure_callback': SlackAlert.fail_alert  # dag 실행 중 실패할 경우 호출하는 함수
+}
 
 
 @dag(
@@ -26,6 +32,7 @@ from fdp_package import fileToMongoMeta
     catchup=False,
     schedule_interval='@once',  # 대기하고 있다가, 내가 원할 때만 실행
     start_date=pendulum.datetime(2022, 11, 26, tz="UTC"),
+    default_args=default_args,
     tags=["delete", "base", "item"]
 )
 def FileToMongoDeleteBase():
