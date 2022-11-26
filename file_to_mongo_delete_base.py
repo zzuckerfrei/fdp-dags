@@ -25,7 +25,8 @@ from fdp_package import fileToMongoMeta
     dag_id="file_to_mongo_delete_base",
     catchup=False,
     schedule_interval='@once',  # 대기하고 있다가, 내가 원할 때만 실행
-    start_date=pendulum.datetime(2022, 9, 29, tz="UTC"),
+    start_date=pendulum.datetime(2022, 11, 26, tz="UTC"),
+    tags=["delete", "base", "item"]
 )
 def FileToMongoDeleteBase():
     start = EmptyOperator(
